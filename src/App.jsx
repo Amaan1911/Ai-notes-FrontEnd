@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
+// Use environment variable for backend URL
+const API_URL = process.env.REACT_APP_API_URL;
+
 function App() {
   const [notes, setNotes] = useState([]);
   const [text, setText] = useState("");
@@ -9,63 +12,73 @@ function App() {
 
   const { transcript, listening, resetTranscript } = useSpeechRecognition();
 
-  // 🔹 Load notes from localStorage on startup
+  // Load notes from backend
   useEffect(() => {
-    const savedNotes = JSON.parse(localStorage.getItem("notes")) || [];
-    setNotes(savedNotes);
+    fetch(`${API_URL}/api/notes`)
+      .then(res => res.json())
+      .then(data => setNotes(data))
+      .catch(err => console.error("Failed to fetch notes:", err));
   }, []);
-
-  // 🔹 Keep localStorage in sync whenever notes change
-  useEffect(() => {
-    localStorage.setItem("notes", JSON.stringify(notes));
-  }, [notes]);
 
   const startListening = () =>
     SpeechRecognition.startListening({ continuous: true, language: "en-US" });
 
   const stopListening = () => {
     SpeechRecognition.stopListening();
-    setText(prev => prev + " " + transcript);
-    resetTranscript();
+    if (transcript.trim()) {
+      setText(prev => (prev ? prev + " " : "") + transcript);
+      resetTranscript();
+    }
   };
 
   const handleSummarize = async () => {
-    const res = await fetch("http://localhost:5000/api/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-    setSummary(data.summary);
+    if (!text.trim()) return;
+    try {
+      const res = await fetch(`${API_URL}/api/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      setSummary(data.summary);
+    } catch (err) {
+      console.error("Summarization failed:", err);
+    }
   };
 
   const handleSave = async () => {
-    // create note object
+    if (!text.trim()) return;
+
     const newNote = {
-      id: Date.now(), // local unique id
+      id: Date.now(),
       text,
       summary,
-      tags: tags.split(",").map(t => t.trim())
+      tags: tags.split(",").map(t => t.trim()).filter(Boolean)
     };
 
-    setNotes([...notes, newNote]); // updates state
+    setNotes([...notes, newNote]);
     setText("");
     setSummary("");
     setTags("");
 
-    // 🔹 still call backend if you want
-    await fetch("http://localhost:5000/api/notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newNote),
-    });
+    try {
+      await fetch(`${API_URL}/api/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newNote),
+      });
+    } catch (err) {
+      console.error("Failed to save note to backend:", err);
+    }
   };
 
   const deleteNote = async (id) => {
     setNotes(notes.filter(n => n.id !== id));
-
-    // 🔹 sync backend too
-    await fetch(`http://localhost:5000/api/notes/${id}`, { method: "DELETE" });
+    try {
+      await fetch(`${API_URL}/api/notes/${id}`, { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to delete note:", err);
+    }
   };
 
   return (
