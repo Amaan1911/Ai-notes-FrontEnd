@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 
-// Use env variable or fallback
-const API_URL = process.env.REACT_APP_API_URL || "https://ai-notes-bakcend.onrender.com";
+const API_URL = "https://ai-notes-bakcend.onrender.com";
 
 function App() {
   const [notes, setNotes] = useState([]);
@@ -12,7 +11,6 @@ function App() {
 
   const { transcript, listening, resetTranscript } = useSpeechRecognition();
 
-  // Load notes from backend on mount
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -21,7 +19,7 @@ function App() {
         const data = await res.json();
         setNotes(data);
       } catch (err) {
-        console.error("Error fetching notes:", err);
+        console.error(err);
       }
     };
     fetchNotes();
@@ -44,43 +42,32 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
-
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const html = await res.text();
-        console.error("Backend returned non-JSON:", html);
-        return;
-      }
-
       const data = await res.json();
       setSummary(data.summary);
     } catch (err) {
-      console.error("Summarization failed:", err);
+      console.error(err);
     }
   };
 
   const handleSave = async () => {
     if (!text.trim()) return;
-
     const newNote = {
       id: Date.now(),
       text,
       summary,
       tags: tags.split(",").map(t => t.trim()).filter(Boolean),
     };
-
     setNotes([...notes, newNote]);
     setText("");
     setSummary("");
     setTags("");
 
     try {
-      const res = await fetch(`${API_URL}/api/notes`, {
+      await fetch(`${API_URL}/api/notes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newNote),
       });
-      if (!res.ok) throw new Error("Failed to save note to backend");
     } catch (err) {
       console.error(err);
     }
@@ -89,22 +76,21 @@ function App() {
   const deleteNote = async (id) => {
     setNotes(notes.filter(n => n.id !== id));
     try {
-      const res = await fetch(`${API_URL}/api/notes/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete note on backend");
+      await fetch(`${API_URL}/api/notes/${id}`, { method: "DELETE" });
     } catch (err) {
       console.error(err);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">🎤 AI Notes App</h1>
+    <div className="max-w-3xl mx-auto p-6 min-h-screen bg-gray-50 font-sans">
+      <h1 className="text-3xl font-extrabold text-center mb-8 text-blue-600">AI Notes ✨</h1>
 
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="Write or dictate your note..."
-        className="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2"
+        className="w-full p-4 mb-4 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
         rows={5}
       />
 
@@ -112,32 +98,59 @@ function App() {
         value={tags}
         onChange={(e) => setTags(e.target.value)}
         placeholder="Tags (comma separated)"
-        className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 mb-4"
+        className="w-full p-3 mb-6 border border-gray-200 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
       />
 
-      <div className="flex gap-3 flex-wrap mb-6">
-        <button onClick={startListening} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">🎤 Start Dictation</button>
-        <button onClick={stopListening} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">⏹ Stop & Insert</button>
-        <button onClick={handleSummarize} className="bg-yellow-400 text-white px-4 py-2 rounded hover:bg-yellow-500 transition">✨ Summarize AI</button>
-        <button onClick={handleSave} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">💾 Save Note</button>
+      <div className="flex flex-wrap gap-3 mb-6">
+        <button
+          onClick={startListening}
+          disabled={listening}
+          className="px-5 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600 transition disabled:opacity-50"
+        >
+          🎤 Start Dictation
+        </button>
+        <button
+          onClick={stopListening}
+          disabled={!listening}
+          className="px-5 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition disabled:opacity-50"
+        >
+          ⏹ Stop & Insert
+        </button>
+        <button
+          onClick={handleSummarize}
+          className="px-5 py-2 bg-yellow-400 text-white rounded-lg shadow hover:bg-yellow-500 transition"
+        >
+          ✨ Summarize AI
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-5 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
+        >
+          💾 Save Note
+        </button>
       </div>
 
-      {listening && <p className="text-red-500 font-semibold mb-4">🎙️ Listening...</p>}
+      {listening && <p className="text-gray-600 mb-4 font-medium">🎙️ Listening...</p>}
 
       {summary && (
-        <div className="p-3 mb-4 bg-yellow-100 border-l-4 border-yellow-500 rounded">
-          <b>AI Summary Preview:</b> {summary}
+        <div className="p-4 mb-6 bg-blue-50 border-l-4 border-blue-400 rounded shadow-sm">
+          <b>AI Summary:</b> {summary}
         </div>
       )}
 
       <h2 className="text-2xl font-bold mb-4">Saved Notes</h2>
       <ul className="space-y-4">
-        {notes.map(n => (
-          <li key={n.id} className="p-4 bg-white shadow rounded-md">
+        {notes.map((n) => (
+          <li key={n.id} className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition">
             <p className="text-gray-800">{n.text}</p>
-            <p className="text-gray-600 mt-1"><b>Summary:</b> {n.summary}</p>
-            <p className="text-gray-500 mt-1"><b>Tags:</b> {n.tags.join(", ")}</p>
-            <button onClick={() => deleteNote(n.id)} className="mt-2 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition">❌ Delete</button>
+            {n.summary && <p className="text-gray-600 mt-1"><b>Summary:</b> {n.summary}</p>}
+            {n.tags.length > 0 && <p className="text-gray-500 mt-1"><b>Tags:</b> {n.tags.join(", ")}</p>}
+            <button
+              onClick={() => deleteNote(n.id)}
+              className="mt-3 px-4 py-1 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition"
+            >
+              ❌ Delete
+            </button>
           </li>
         ))}
       </ul>
