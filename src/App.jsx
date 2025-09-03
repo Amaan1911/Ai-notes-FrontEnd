@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
+import Stars from "./Stars";
 
 const API_URL = "https://ai-notes-bakcend.onrender.com";
 
@@ -84,6 +85,7 @@ function App() {
 
   return (
     <div className="max-w-3xl mx-auto p-6 min-h-screen bg-gray-50 font-sans">
+      
       <h1 className="text-3xl font-extrabold text-center mb-8 text-blue-600">AI Notes ✨</h1>
 
       <textarea
